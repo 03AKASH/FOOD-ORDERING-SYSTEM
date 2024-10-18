@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Run Dastardly (Burp Suite) and save output
+      run: |
+        # Ensure the URL is correct and accessible from the GitHub Actions environment
+        # docker run --rm -v "$(pwd):/src" --network="host" public.ecr.aws/portswigger/dastardly:latest > dastardly-report.json || { echo 'Dastardly scan failed!'; exit 1; }
+
+    - name: Convert JSON to XML
+      run: |
+        # Convert the JSON output to XML format
+        echo '<?xml version="1.0" encoding="UTF-8"?>' > dastardly-report.xml
+        echo '<dastardlyReport>' >> dastardly-report.xml
+        
+        # Adjust this according to the actual structure of dastardly-report.json
+        cat dastardly-report.json | jq -c '.[]' | while read -r line; do
+          echo "<issue>${line}</issue>" >> dastardly-report.xml
+        done
+        
+        echo '</dastardlyReport>' >> dastardly-report.xml
+
+    - name: Upload XML Report
+      uses: actions/upload-artifact@v3
+      with:
+        name: dastardly-report-xml
+        path: dastardly-report.xml
